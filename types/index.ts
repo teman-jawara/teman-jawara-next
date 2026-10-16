@@ -39,15 +39,36 @@ export type Post = {
   user_id: string;
   title: string;
   description: string;
-  competition_category: CompetitionCategory;
+  category: string;
   required_skills: string[];
-  competition_event_name: string | null;
+  event_name: string | null;
   deadline: string | null;
-  number_of_teammates_needed: number | null;
-  faculty_or_prodi_preference: string | null;
+  teammate_count: number;
+  faculty_preference: string | null;
+  study_program_preference: string | null;
   image_url: string | null;
+  status: "active" | "closed";
   created_at: string;
   updated_at: string;
+   like_count?: number;
+  comment_count?: number;
+  view_count?: number;
+  author?: {
+    id: string;
+    full_name: string | null;
+    nim: string | null;
+    avatar_url: string | null;
+    faculty: string | null;
+    study_program: string | null;
+    generation: number | null;
+    bio: string | null;
+    skills?: string[];
+  } | null;
+  // Legacy alias fields for backward compatibility
+  competition_category?: CompetitionCategory;
+  competition_event_name?: string | null;
+  number_of_teammates_needed?: number | null;
+  faculty_or_prodi_preference?: string | null;
 };
 
 export type Like = {

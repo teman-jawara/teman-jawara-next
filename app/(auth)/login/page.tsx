@@ -8,11 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,19 +24,27 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (error) {
-      setError(error.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Gagal masuk. Periksa email dan kata sandi.");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/feed");
+      router.refresh();
+    } catch {
+      setError("Terjadi kesalahan jaringan. Silakan coba lagi.");
       setLoading(false);
-      return;
     }
-
-    router.push("/feed");
-    router.refresh();
   }
 
   return (
@@ -63,39 +69,40 @@ export default function LoginPage() {
         </FormField>
 
         <FormField label="Kata sandi" htmlFor="password">
-  <div className="relative">
-    <Input
-      id="password"
-      type={showPassword ? "text" : "password"}
-      autoComplete="current-password"
-      value={password}
-      onChange={(event) => setPassword(event.target.value)}
-      required
-      className="pr-10"
-    />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              className="pr-10"
+            />
 
-    <button
-      type="button"
-      onClick={() => setShowPassword((prev) => !prev)}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-navy-700"
-      aria-label={
-        showPassword
-          ? "Sembunyikan kata sandi"
-          : "Tampilkan kata sandi"
-      }
-    >
-      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-    </button>
-  </div>
-</FormField>
-<div className="flex justify-end">
-  <Link
-    href="/forgot-password"
-    className="text-sm font-semibold text-navy-700 hover:underline"
-  >
-    Lupa kata sandi?
-  </Link>
-</div>
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-navy-700"
+              aria-label={
+                showPassword
+                  ? "Sembunyikan kata sandi"
+                  : "Tampilkan kata sandi"
+              }
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </FormField>
+
+        <div className="flex justify-end">
+          <Link
+            href="/forgot-password"
+            className="text-sm font-semibold text-navy-700 hover:underline"
+          >
+            Lupa kata sandi?
+          </Link>
+        </div>
 
         {error && (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">

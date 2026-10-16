@@ -28,4 +28,5 @@ export const mobileNavItems: NavItem[] = [
   createPostItem,
   appNavItems[2], // Koneksi
   appNavItems[3], // Notifikasi
+  appNavItems[4],// Profil Saya
 ];

@@ -11,7 +11,6 @@ type LogoProps = {
 export function Logo({ href = "/", className }: LogoProps) {
   return (
     <Link
-    
       href={href}
       className={cn("inline-flex items-center gap-2", className)}
     >
@@ -25,10 +24,10 @@ export function Logo({ href = "/", className }: LogoProps) {
       />
 
       <div className="flex flex-col leading-tight">
-        <span className="text-lg font-extrabold tracking-tight text-navy-800">
+        <span className="text-lg font-extrabold tracking-tight text-yellow-400 sm:text-xl">
           {siteConfig.name}
         </span>
-        <span className="text-[11px] text-muted">
+        <span className="text-[11px] text-muted text-white">
           Dari Untirta, Menuju Juara
         </span>
       </div>

@@ -1,21 +1,28 @@
 import type { Metadata } from "next";
-import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
+import { PostForm } from "@/components/posts/post-form";
+import { getAuthenticatedUser } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Buat postingan" };
+export const metadata: Metadata = {
+  title: "Buat postingan",
+};
 
-export default function CreatePostPage() {
+export default async function CreatePostPage() {
+  const user = await getAuthenticatedUser();
+
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Buat postingan"
-        description="Ceritakan lomba yang kamu ikuti dan skill apa yang kamu cari."
+        description="Ceritakan lomba yang kamu ikuti dan kriteria rekan tim yang kamu cari."
       />
-      <EmptyState
-        icon="plus"
-        title="Formulir postingan"
-        description="Formulir untuk judul, deskripsi, kategori, dan skill yang dibutuhkan akan tampil di sini."
+
+      <PostForm
+        user={{
+          full_name: user?.full_name ?? null,
+          avatar_url: user?.avatar_url ?? null,
+        }}
       />
-    </>
+    </div>
   );
 }

@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
 import { Card } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
+import { Avatar } from "@/components/ui/avatar";
 
 type Profile = {
   id: string;
   full_name: string;
-  nim: string;
+  nim: string | null;
   faculty: string | null;
   study_program: string | null;
   generation: number | null;
@@ -26,7 +26,6 @@ type ProfileEditFormProps = {
 
 export function ProfileEditForm({ profile }: ProfileEditFormProps) {
   const router = useRouter();
-  const supabase = createClient();
 
   const [fullName, setFullName] = useState(profile.full_name ?? "");
   const [nim, setNim] = useState(profile.nim ?? "");
@@ -66,35 +65,57 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        full_name: fullName.trim(),
-        nim: nim.trim(),
-        faculty: faculty.trim() || null,
-        study_program: studyProgram.trim() || null,
-        generation: generation ? Number(generation) : null,
-        bio: bio.trim() || null,
-        skills: skillsArray,
-        competition_interests: interestsArray,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", profile.id);
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          nim: nim.trim() || null,
+          faculty: faculty.trim() || null,
+          study_program: studyProgram.trim() || null,
+          generation: generation ? Number(generation) : null,
+          bio: bio.trim() || null,
+          skills: skillsArray,
+          competition_interests: interestsArray,
+        }),
+      });
 
-    if (error) {
-      setError(error.message);
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Gagal memperbarui profil.");
+        setLoading(false);
+        return;
+      }
+
+      setMessage("Profil berhasil diperbarui.");
       setLoading(false);
-      return;
+      router.refresh();
+    } catch {
+      setError("Terjadi kesalahan jaringan.");
+      setLoading(false);
     }
-
-    setMessage("Profil berhasil diperbarui.");
-    setLoading(false);
-    router.refresh();
   }
 
   return (
     <Card>
-      <form onSubmit={handleSubmit} className="space-y-5">
+  <form onSubmit={handleSubmit} className="space-y-5">
+    <div className="flex items-center gap-4 border-b border-gray-100 pb-5">
+      <Avatar
+        name={fullName || "Mahasiswa Untirta"}
+        size="lg"
+      />
+
+      <div>
+        <p className="font-semibold text-gray-900">
+          {fullName || "Mahasiswa Untirta"}
+        </p>
+        <p className="text-sm text-gray-500">
+          Preview foto profil berupa inisial akun
+        </p>
+      </div>
+    </div>
         <FormField label="Nama lengkap" htmlFor="full-name">
           <Input
             id="full-name"
@@ -104,12 +125,16 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
           />
         </FormField>
 
-        <FormField label="NIM" htmlFor="nim">
+        <FormField
+          label="NIM"
+          htmlFor="nim"
+          hint="Nomor Induk Mahasiswa aktif Untirta."
+        >
           <Input
             id="nim"
             value={nim}
             onChange={(event) => setNim(event.target.value)}
-            required
+            placeholder="Contoh: 3332200001"
           />
         </FormField>
 

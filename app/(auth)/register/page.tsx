@@ -8,28 +8,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
-
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  async function handleRegister(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setError("");
-    setSuccess("");
     setLoading(true);
 
     if (password.length < 8) {
@@ -38,32 +31,32 @@ export default function RegisterPage() {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName,
+          email,
+          password,
+        }),
+      });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
-      return;
-    }
+      const data = await response.json();
 
-    if (data.session) {
+      if (!response.ok) {
+        setError(data.message || "Gagal membuat akun.");
+        setLoading(false);
+        return;
+      }
+
+      // Automatically logged in via HTTP-only session cookie
       router.push("/feed");
       router.refresh();
-      return;
+    } catch {
+      setError("Terjadi kesalahan jaringan. Silakan coba lagi.");
+      setLoading(false);
     }
-
-    setSuccess(
-      "Akun berhasil dibuat. Silakan cek email untuk verifikasi akun.",
-    );
-    setLoading(false);
   }
 
   return (
@@ -79,6 +72,7 @@ export default function RegisterPage() {
           <Input
             id="full-name"
             autoComplete="name"
+            placeholder="Nama lengkap kamu"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             required
@@ -98,50 +92,44 @@ export default function RegisterPage() {
         </FormField>
 
         <FormField
-  label="Kata sandi"
-  htmlFor="password"
-  hint="Minimal 8 karakter."
->
-  <div className="relative">
-    <Input
-      id="password"
-      type={showPassword ? "text" : "password"}
-      autoComplete="new-password"
-      value={password}
-      onChange={(event) => setPassword(event.target.value)}
-      required
-      minLength={8}
-      className="pr-10"
-    />
+          label="Kata sandi"
+          htmlFor="password"
+          hint="Minimal 8 karakter."
+        >
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={8}
+              className="pr-10"
+            />
 
-    <button
-      type="button"
-      onClick={() => setShowPassword((prev) => !prev)}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-navy-700"
-      aria-label={
-        showPassword
-          ? "Sembunyikan kata sandi"
-          : "Tampilkan kata sandi"
-      }
-    >
-      {showPassword ? (
-        <EyeOff size={18} />
-      ) : (
-        <Eye size={18} />
-      )}
-    </button>
-  </div>
-</FormField>
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-navy-700"
+              aria-label={
+                showPassword
+                  ? "Sembunyikan kata sandi"
+                  : "Tampilkan kata sandi"
+              }
+            >
+              {showPassword ? (
+                <EyeOff size={18} />
+              ) : (
+                <Eye size={18} />
+              )}
+            </button>
+          </div>
+        </FormField>
 
         {error && (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
             {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-            {success}
           </div>
         )}
 

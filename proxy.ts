@@ -1,62 +1,49 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { SESSION_COOKIE_NAME } from "@/lib/auth";
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request,
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            request.cookies.set(name, value);
-          });
-
-          response = NextResponse.next({
-            request,
-          });
-
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
 
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
+    request.nextUrl.pathname.startsWith("/register") ||
+    request.nextUrl.pathname.startsWith("/forgot-password") ||
+    request.nextUrl.pathname.startsWith("/reset-password");
 
   const isProtectedPage =
-    request.nextUrl.pathname.startsWith("/feed");
+    request.nextUrl.pathname.startsWith("/feed") ||
+    request.nextUrl.pathname.startsWith("/me") ||
+    request.nextUrl.pathname.startsWith("/saved") ||
+    request.nextUrl.pathname.startsWith("/connections") ||
+    request.nextUrl.pathname.startsWith("/notifications") ||
+    request.nextUrl.pathname.startsWith("/posts/create") ||
+    request.nextUrl.pathname.includes("/edit");
 
-  if (!user && isProtectedPage) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (!sessionToken && isProtectedPage) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
-  if (user && isAuthPage) {
+  if (sessionToken && isAuthPage) {
     return NextResponse.redirect(new URL("/feed", request.url));
   }
 
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     "/login/:path*",
     "/register/:path*",
+    "/forgot-password/:path*",
+    "/reset-password/:path*",
     "/feed/:path*",
+    "/me/:path*",
+    "/saved/:path*",
+    "/connections/:path*",
+    "/notifications/:path*",
+    "/posts/create",
+    "/posts/:id/edit",
   ],
 };

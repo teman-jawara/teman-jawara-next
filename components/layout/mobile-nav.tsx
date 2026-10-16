@@ -6,7 +6,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Menu utama"
-      className="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 flex border-t border-white/10 bg-navy-900 pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       {mobileNavItems.map((item) => (
         <NavLink key={item.href} {...item} variant="tab" />

@@ -3,17 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 export function LogoutButton() {
   const router = useRouter();
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
 
   async function handleLogout() {
     setLoading(true);
 
-    await supabase.auth.signOut();
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch {
+      // Proceed with redirection even if network fails
+    }
 
     router.push("/login");
     router.refresh();
