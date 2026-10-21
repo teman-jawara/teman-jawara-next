@@ -4,6 +4,7 @@ import { buttonStyles } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { PostCard } from "@/components/posts/post-card";
+import { FeedSearch } from "@/components/posts/feed-search";
 import { COMPETITION_CATEGORIES } from "@/constants/competition";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/auth";
@@ -127,36 +128,38 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
         })}
       </div>
 
-      {/* Post List or Empty State */}
-      {posts.length === 0 ? (
-        <EmptyState
-          icon="home"
-          title="Belum ada postingan"
-          description={
-            category
-              ? `Belum ada postingan untuk kategori "${category}".`
-              : "Daftar postingan, pencarian, dan filter akan tampil di sini."
-          }
-          action={
-            <Link
-              href="/posts/create"
-              className={buttonStyles({ variant: "accent" })}
-            >
-              Buat postingan
-            </Link>
-          }
-        />
-      ) : (
-        <div className="mx-auto w-full max-w-2xl divide-y divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white">
-  {posts.map((post) => (
-    <PostCard
-      key={post.id}
-      post={post}
-      currentUserId={currentUser?.id}
-    />
-  ))}
-</div>
-      )}
+      <FeedSearch>
+        {posts.length === 0 ? (
+          <EmptyState
+            icon="home"
+            title="Belum ada postingan"
+            description={
+              category
+                ? `Belum ada postingan untuk kategori "${category}".`
+                : "Daftar postingan, pencarian, dan filter akan tampil di sini."
+            }
+            action={
+              <Link
+                href="/posts/create"
+                className={buttonStyles({ variant: "accent" })}
+              >
+                Buat postingan
+              </Link>
+            }
+          />
+        ) : (
+          <div className="mx-auto w-full max-w-2xl divide-y divide-gray-200 overflow-hidden rounded-xl border border-gray-200 bg-white">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                currentUserId={currentUser?.id}
+              />
+            ))}
+          </div>
+        )}
+      </FeedSearch>
     </div>
   );
 }
+  

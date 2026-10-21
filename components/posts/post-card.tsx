@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -329,6 +328,14 @@ export function PostCard({ post,currentUserId, showActions = true, viewMode = "f
           </div>
 
           <Link href={`/posts/${post.id}`} className="block">
+            {post.category && (
+              <div className="mt-2 mb-2">
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
+                  {post.category}
+                </span>
+              </div>
+            )}
+
             {post.description && (
               <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-6 text-gray-900">
                 {post.description}
