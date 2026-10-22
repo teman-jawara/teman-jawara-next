@@ -8,16 +8,13 @@ type LogoProps = {
   className?: string;
 };
 
-export function Logo({ href = "/", className }: LogoProps) {
-  return (
-    <Link
-      href={href}
-      className={cn("inline-flex items-center gap-2", className)}
-    >
+export function Logo({ href, className }: LogoProps) {
+  const content = (
+    <>
       <Image
         src="/image/logo.png"
         alt={`${siteConfig.name} logo`}
-        width={180}
+        width={54}
         height={54}
         priority
         className="h-[54px] w-auto object-contain"
@@ -31,6 +28,23 @@ export function Logo({ href = "/", className }: LogoProps) {
           Dari Untirta, Menuju Juara
         </span>
       </div>
-    </Link>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={cn("inline-flex items-center gap-2", className)}
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <span className={cn("inline-flex items-center gap-2", className)}>
+      {content}
+    </span>
   );
 }

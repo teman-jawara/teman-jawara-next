@@ -21,16 +21,17 @@ export function FeedSearch({ children }: FeedSearchProps) {
 
   const queryString = searchParams.toString();
 
-  const [search, setSearch] = useState(
-    searchParams.get("search") ?? "",
-  );
+  const urlSearch = searchParams.get("search") ?? "";
+  const [search, setSearch] = useState(urlSearch);
+  const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
 
-  // Sinkronkan kolom pencarian ketika parameter URL berubah.
-  useEffect(() => {
-    setSearch(
-      new URLSearchParams(queryString).get("search") ?? "",
-    );
-  }, [queryString]);
+  // Sinkronkan kolom pencarian saat parameter URL berubah dari luar (mis. tombol
+  // back). Disesuaikan saat render, bukan di dalam useEffect, agar tidak memicu
+  // render berantai (aturan react-hooks/set-state-in-effect).
+  if (urlSearch !== prevUrlSearch) {
+    setPrevUrlSearch(urlSearch);
+    setSearch(urlSearch);
+  }
 
   // Perbarui URL dan pertahankan parameter lainnya.
   function updateParams(changes: Record<string, string>) {
@@ -71,6 +72,17 @@ export function FeedSearch({ children }: FeedSearchProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, queryString]);
 
+  // Tanpa kata kunci tidak ada skor relevansi, jadi pilihan "Paling relevan"
+  // hanya muncul saat ada pencarian (default-nya juga relevan saat mencari).
+  const hasQuery = urlSearch.trim().length > 0;
+  const sortParam = searchParams.get("sort");
+  const sortValue =
+    sortParam === "terlama" || sortParam === "terbaru"
+      ? sortParam
+      : hasQuery
+        ? "relevan"
+        : "terbaru";
+
   const inputClass =
     "w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-navy-800 focus:ring-2 focus:ring-navy-100";
 
@@ -98,13 +110,14 @@ export function FeedSearch({ children }: FeedSearchProps) {
 
           {/* Pengurutan postingan */}
           <select
-            value={searchParams.get("sort") ?? "terbaru"}
+            value={sortValue}
             onChange={(event) =>
               updateParams({ sort: event.target.value })
             }
             aria-label="Urutkan postingan"
             className={`${inputClass} sm:w-40`}
           >
+            {hasQuery && <option value="relevan">Paling relevan</option>}
             <option value="terbaru">Terbaru</option>
             <option value="terlama">Terlama</option>
           </select>

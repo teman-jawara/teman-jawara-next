@@ -55,6 +55,11 @@ export function PostCard({ post,currentUserId, showActions = true, viewMode = "f
           { cache: "no-store" },
         );
 
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Server tidak mengembalikan JSON.");
+        }
+
         const result = await response.json();
 
         if (!response.ok || !result.success) {
