@@ -6,38 +6,49 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
+
 
 export default function ForgotPasswordPage() {
-  const supabase = createClient();
+  
 
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleReset(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  
+async function handleReset(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-    setLoading(true);
-    setMessage("");
-    setError("");
+  setLoading(true);
+  setMessage("");
+  setError("");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+  try {
+    const response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Gagal memproses permintaan reset.");
       return;
     }
 
     setMessage(
-      "Link reset password sudah dikirim. Cek inbox email kamu.",
+      data.message ||
+        "Jika email terdaftar, tautan reset password akan dikirim ke email tersebut.",
     );
+  } catch {
+    setError("Terjadi kesalahan jaringan. Silakan coba lagi.");
+  } finally {
     setLoading(false);
   }
+}
+
 
   return (
     <Card>

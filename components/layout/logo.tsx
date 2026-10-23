@@ -24,7 +24,7 @@ export function Logo({ href, className }: LogoProps) {
         <span className="text-lg font-extrabold tracking-tight text-yellow-400 sm:text-xl">
           {siteConfig.name}
         </span>
-        <span className="text-[11px] text-muted text-white">
+        <span className="text-[11px] text-muted text-grey">
           Dari Untirta, Menuju Juara
         </span>
       </div>
