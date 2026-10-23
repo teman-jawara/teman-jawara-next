@@ -1,0 +1,3 @@
+ALTER TABLE profiles
+  ADD COLUMN whatsapp_number VARCHAR(20) NULL,
+  ADD COLUMN whatsapp_public TINYINT(1) NOT NULL DEFAULT 0;

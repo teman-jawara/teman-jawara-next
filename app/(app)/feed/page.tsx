@@ -8,17 +8,39 @@ import { FeedSearch } from "@/components/posts/feed-search";
 import { COMPETITION_CATEGORIES } from "@/constants/competition";
 import { db } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/auth";
-import { mapRowToPost, type PostRow } from "@/lib/posts";
 import { searchPosts } from "@/lib/search/tfidf";
-import { Post } from "@/types";
-
+import type { RowDataPacket } from "mysql2";
+import {
+  parseSkills,
+  mapRowToPost,
+  type PostRow,
+} from "@/lib/posts";
+import {
+  calculatePartnerMatch,
+  DEFAULT_COMPETENCY_WEIGHTS,
+  type AuthorFullProfileData,
+} from "@/lib/recommender/competency";
+import {
+  mapRowToAchievement,
+  mapRowToProject,
+  mapRowToExperience,
+} from "@/lib/profile-details";
+import type {
+  Achievement,
+  Experience,
+  Post,
+  Project,
+} from "@/types";
 export const metadata: Metadata = { title: "Feed" };
 
 /** Postingan terbaru yang diberi peringkat saat mencari (TF-IDF dihitung di memori). */
 const CANDIDATE_LIMIT = 300;
 /** Jumlah postingan yang ditampilkan di Feed. */
 const FEED_PAGE_SIZE = 50;
-
+interface FeedPostRow extends PostRow {
+  author_skills: unknown;
+  author_competition_interests: unknown;
+}
 function timeOf(post: Post): number {
   const t = Date.parse(post.created_at);
   return Number.isNaN(t) ? 0 : t;
@@ -75,7 +97,7 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
 
   let posts: Post[] = [];
   try {
-    const [rows] = await db.query<PostRow[]>(
+    const [rows] = await db.query<FeedPostRow[]>(
       `SELECT 
         p.id,
         p.user_id,
@@ -101,7 +123,9 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
         pr.study_program AS author_study_program,
         pr.nim AS author_nim,
         pr.generation AS author_generation,
-        pr.bio AS author_bio
+        pr.bio AS author_bio,
+        pr.skills AS author_skills,
+pr.competition_interests AS author_competition_interests
       FROM posts p
       LEFT JOIN profiles pr ON p.user_id = pr.user_id
       ${whereSql}
@@ -110,10 +134,162 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
       params,
     );
 
-    posts = applySearchAndSort(rows.map(mapRowToPost), search, sort).slice(
-      0,
-      FEED_PAGE_SIZE,
+
+    const allCandidates = rows.map(mapRowToPost);
+
+    let orderedPosts = applySearchAndSort(
+      allCandidates,
+      search,
+      sort,
     );
+
+    const query = search?.trim() ?? "";
+    const selectedCategory =
+      category &&
+        category !== "Semua" &&
+        category !== "All"
+        ? category
+        : undefined;
+
+    const shouldCalculateCompetency =
+      category !== "Other" &&
+      (Boolean(query) || Boolean(selectedCategory));
+
+    if (shouldCalculateCompetency && orderedPosts.length > 0) {
+      try {
+        const authorIds = Array.from(
+          new Set(rows.map((row) => row.user_id).filter(Boolean)),
+        );
+
+        const achievementsByUser = new Map<string, Achievement[]>();
+        const projectsByUser = new Map<string, Project[]>();
+        const experiencesByUser = new Map<string, Experience[]>();
+
+        const profileByUser = new Map(
+          rows.map((row) => [
+            row.user_id,
+            {
+              skills: parseSkills(row.author_skills),
+              interests: parseSkills(
+                row.author_competition_interests,
+              ),
+            },
+          ]),
+        );
+
+        if (authorIds.length > 0) {
+          const [achievementRows] = await db.query<RowDataPacket[]>(
+            "SELECT * FROM achievements WHERE user_id IN (?)",
+            [authorIds],
+          );
+
+          for (const row of achievementRows) {
+            const item = mapRowToAchievement(row);
+            const records = achievementsByUser.get(item.user_id) ?? [];
+            records.push(item);
+            achievementsByUser.set(item.user_id, records);
+          }
+
+          const [projectRows] = await db.query<RowDataPacket[]>(
+            "SELECT * FROM projects WHERE user_id IN (?)",
+            [authorIds],
+          );
+
+          for (const row of projectRows) {
+            const item = mapRowToProject(row);
+            const records = projectsByUser.get(item.user_id) ?? [];
+            records.push(item);
+            projectsByUser.set(item.user_id, records);
+          }
+
+          const [experienceRows] = await db.query<RowDataPacket[]>(
+            "SELECT * FROM experiences WHERE user_id IN (?)",
+            [authorIds],
+          );
+
+          for (const row of experienceRows) {
+            const item = mapRowToExperience(row);
+            const records = experiencesByUser.get(item.user_id) ?? [];
+            records.push(item);
+            experiencesByUser.set(item.user_id, records);
+          }
+        }
+
+        for (const post of orderedPosts) {
+          const profile = profileByUser.get(post.user_id);
+
+          const authorData: AuthorFullProfileData = {
+            profile: {
+              skills: profile?.skills ?? [],
+              bio: post.author?.bio ?? null,
+              competition_interests: profile?.interests ?? [],
+            },
+            achievements: achievementsByUser.get(post.user_id) ?? [],
+            projects: projectsByUser.get(post.user_id) ?? [],
+            experiences: experiencesByUser.get(post.user_id) ?? [],
+          };
+
+          const match = calculatePartnerMatch(
+            post,
+            authorData,
+            {
+              category: selectedCategory,
+              query,
+            },
+            DEFAULT_COMPETENCY_WEIGHTS,
+            allCandidates,
+          );
+
+          if (match.isEligible) {
+            post.partner_match = {
+              score: match.score,
+              display_label: match.displayLabel,
+              has_sufficient_data: match.hasSufficientData,
+              breakdown: match.breakdown
+                ? {
+                  post_relevance: match.breakdown.postRelevance,
+                  profile_match: match.breakdown.profileMatch,
+                  achievement_score: match.breakdown.achievementScore,
+                  project_score: match.breakdown.projectScore,
+                  experience_score: match.breakdown.experienceScore,
+                }
+                : undefined,
+            };
+          }
+        }
+
+        // Gunakan skor kompetensi sebagai ranking utama
+        // untuk pencarian atau kategori spesifik.
+        // Ranking TF-IDF menjadi pemecah skor yang sama.
+        if (!sort || sort === "relevan") {
+          const originalOrder = new Map(
+            orderedPosts.map((post, index) => [post.id, index]),
+          );
+
+          orderedPosts.sort((a, b) => {
+            const scoreA = a.partner_match?.score ?? -1;
+            const scoreB = b.partner_match?.score ?? -1;
+
+            if (scoreB !== scoreA) {
+              return scoreB - scoreA;
+            }
+
+            return (
+              (originalOrder.get(a.id) ?? 0) -
+              (originalOrder.get(b.id) ?? 0)
+            );
+          });
+        }
+      } catch (error) {
+        console.error(
+          "Error calculating feed competency scores:",
+          error,
+        );
+      }
+    }
+
+    posts = orderedPosts.slice(0, FEED_PAGE_SIZE);
+
   } catch (error) {
     console.error("Error loading feed posts from MySQL:", error);
   }
@@ -136,11 +312,10 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
       <div className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
         <Link
           href="/feed"
-          className={`inline-flex whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-            !category || category === "Semua"
+          className={`inline-flex whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${!category || category === "Semua"
               ? "bg-navy-800 text-white"
               : "border border-line bg-surface text-muted hover:bg-navy-50 hover:text-navy-800"
-          }`}
+            }`}
         >
           Semua Kategori
         </Link>
@@ -150,11 +325,10 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
             <Link
               key={cat}
               href={`/feed?category=${encodeURIComponent(cat)}`}
-              className={`inline-flex whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                isSelected
+              className={`inline-flex whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${isSelected
                   ? "bg-navy-800 text-white"
                   : "border border-line bg-surface text-muted hover:bg-navy-50 hover:text-navy-800"
-              }`}
+                }`}
             >
               {cat}
             </Link>
@@ -196,4 +370,3 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
     </div>
   );
 }
-  
