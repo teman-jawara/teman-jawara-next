@@ -9,7 +9,17 @@ import {
   type WeightedField,
 } from "@/lib/search/tfidf";
 import { buildCandidateWhere, parseSearchParams } from "@/lib/search/query";
-import type { Post } from "@/types";
+import {
+  calculatePartnerMatch,
+  DEFAULT_COMPETENCY_WEIGHTS,
+  type AuthorFullProfileData,
+} from "@/lib/recommender/competency";
+import {
+  mapRowToAchievement,
+  mapRowToProject,
+  mapRowToExperience,
+} from "@/lib/profile-details";
+import type { Achievement, Project, Experience, Post } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +90,9 @@ export async function GET(request: NextRequest) {
         pr.study_program AS author_study_program,
         pr.nim AS author_nim,
         pr.generation AS author_generation,
-        pr.bio AS author_bio
+        pr.bio AS author_bio,
+        pr.skills AS author_skills,
+        pr.competition_interests AS author_competition_interests
       FROM posts p
       LEFT JOIN profiles pr ON p.user_id = pr.user_id
       ${whereSql}
@@ -121,7 +133,121 @@ export async function GET(request: NextRequest) {
     const { mode, ranked } = searchPosts(candidates, params.q, profileParts);
     if (mode !== "relevance") profileUsed = false;
 
-    // --- 4. Paginasi hasil yang sudah diurutkan ---
+    // --- 4. Competency & Partner Match Layer ---
+    const authorIds = Array.from(new Set(candidates.map((c) => c.user_id)));
+    const achievementsByUser = new Map<string, Achievement[]>();
+    const projectsByUser = new Map<string, Project[]>();
+    const experiencesByUser = new Map<string, Experience[]>();
+    const profileDataByUser = new Map<string, { skills: string[]; interests: string[] }>();
+
+    for (const row of rows) {
+      if (row.user_id && !profileDataByUser.has(row.user_id)) {
+        profileDataByUser.set(row.user_id, {
+          skills: parseSkills((row as unknown as { author_skills: unknown }).author_skills),
+          interests: parseSkills(
+            (row as unknown as { author_competition_interests: unknown })
+              .author_competition_interests,
+          ),
+        });
+      }
+    }
+
+    if (authorIds.length > 0 && params.category !== "Other") {
+      try {
+        const [achRows] = await db.query<RowDataPacket[]>(
+          `SELECT * FROM achievements WHERE user_id IN (?)`,
+          [authorIds],
+        );
+        for (const r of achRows) {
+          const item = mapRowToAchievement(r);
+          const list = achievementsByUser.get(item.user_id) || [];
+          list.push(item);
+          achievementsByUser.set(item.user_id, list);
+        }
+
+        const [projRows] = await db.query<RowDataPacket[]>(
+          `SELECT * FROM projects WHERE user_id IN (?)`,
+          [authorIds],
+        );
+        for (const r of projRows) {
+          const item = mapRowToProject(r);
+          const list = projectsByUser.get(item.user_id) || [];
+          list.push(item);
+          projectsByUser.set(item.user_id, list);
+        }
+
+        const [expRows] = await db.query<RowDataPacket[]>(
+          `SELECT * FROM experiences WHERE user_id IN (?)`,
+          [authorIds],
+        );
+        for (const r of expRows) {
+          const item = mapRowToExperience(r);
+          const list = experiencesByUser.get(item.user_id) || [];
+          list.push(item);
+          experiencesByUser.set(item.user_id, list);
+        }
+      } catch (err) {
+        console.error("[Competency Data Fetch Error]:", err);
+      }
+    }
+
+    // Attach partner match to each ranked candidate
+    for (const entry of ranked) {
+      const item = entry.item;
+      const authorProfile = profileDataByUser.get(item.user_id);
+      const authorData: AuthorFullProfileData = {
+        profile: {
+          skills: authorProfile?.skills || item.author?.skills || [],
+          bio: item.author?.bio || null,
+          competition_interests: authorProfile?.interests || [],
+        },
+        achievements: achievementsByUser.get(item.user_id) || [],
+        projects: projectsByUser.get(item.user_id) || [],
+        experiences: experiencesByUser.get(item.user_id) || [],
+      };
+
+      const match = calculatePartnerMatch(
+        item,
+        authorData,
+        { category: params.category, query: params.q },
+        DEFAULT_COMPETENCY_WEIGHTS,
+        candidates,
+      );
+
+      if (match.isEligible) {
+        item.partner_match = {
+          score: match.score,
+          display_label: match.displayLabel,
+          has_sufficient_data: match.hasSufficientData,
+          breakdown: match.breakdown
+            ? {
+                post_relevance: match.breakdown.postRelevance,
+                profile_match: match.breakdown.profileMatch,
+                achievement_score: match.breakdown.achievementScore,
+                project_score: match.breakdown.projectScore,
+                experience_score: match.breakdown.experienceScore,
+              }
+            : undefined,
+        };
+      }
+    }
+
+    // Combined score ranking when category !== "Other"
+    if (
+      params.category !== "Other" &&
+      (params.q || (params.category && params.category !== "All" && params.category !== "Semua"))
+    ) {
+      ranked.sort((a, b) => {
+        const scoreA = a.item.partner_match?.score ?? -1;
+        const scoreB = b.item.partner_match?.score ?? -1;
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA;
+        }
+        return b.score - a.score;
+      });
+    }
+
+    // --- 5. Paginasi hasil yang sudah diurutkan ---
     const offset = (params.page - 1) * params.limit;
     const posts: SearchedPost[] = ranked
       .slice(offset, offset + params.limit)

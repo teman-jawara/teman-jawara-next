@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -18,6 +19,8 @@ type Profile = {
   bio: string | null;
   skills: string[] | null;
   competition_interests: string[] | null;
+  whatsapp_number?: string | null;
+  whatsapp_public?: boolean | number | null;
 };
 
 type ProfileEditFormProps = {
@@ -44,6 +47,13 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
     profile.competition_interests?.join(", ") ?? "",
   );
 
+  const [whatsappNumber, setWhatsappNumber] = useState(
+    profile.whatsapp_number ?? "",
+  );
+  const [whatsappPublic, setWhatsappPublic] = useState(
+    Boolean(profile.whatsapp_public),
+  );
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -65,6 +75,14 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
       .map((item) => item.trim())
       .filter(Boolean);
 
+    if (whatsappPublic && !whatsappNumber.trim()) {
+      setError(
+        "Isi nomor WhatsApp terlebih dahulu sebelum mengizinkan kontak ditampilkan.",
+      );
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/profile", {
         method: "PUT",
@@ -78,6 +96,10 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
           bio: bio.trim() || null,
           skills: skillsArray,
           competition_interests: interestsArray,
+          whatsapp_number: whatsappNumber.trim() || null,
+          whatsapp_public: whatsappNumber.trim()
+            ? whatsappPublic
+            : false,
         }),
       });
 
@@ -85,37 +107,34 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
 
       if (!response.ok) {
         setError(data.message || "Gagal memperbarui profil.");
-        setLoading(false);
         return;
       }
 
       setMessage("Profil berhasil diperbarui.");
-      setLoading(false);
       router.refresh();
     } catch {
       setError("Terjadi kesalahan jaringan.");
+    } finally {
       setLoading(false);
     }
   }
 
   return (
     <Card>
-  <form onSubmit={handleSubmit} className="space-y-5">
-    <div className="flex items-center gap-4 border-b border-gray-100 pb-5">
-      <Avatar
-        name={fullName || "Mahasiswa Untirta"}
-        size="lg"
-      />
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="flex items-center gap-4 border-b border-gray-100 pb-5">
+          <Avatar name={fullName || "Mahasiswa Untirta"} size="lg" />
 
-      <div>
-        <p className="font-semibold text-gray-900">
-          {fullName || "Mahasiswa Untirta"}
-        </p>
-        <p className="text-sm text-gray-500">
-          Preview foto profil berupa inisial akun
-        </p>
-      </div>
-    </div>
+          <div>
+            <p className="font-semibold text-gray-900">
+              {fullName || "Mahasiswa Untirta"}
+            </p>
+            <p className="text-sm text-gray-500">
+              Preview foto profil berupa inisial akun
+            </p>
+          </div>
+        </div>
+
         <FormField label="Nama lengkap" htmlFor="full-name">
           <Input
             id="full-name"
@@ -205,14 +224,83 @@ export function ProfileEditForm({ profile }: ProfileEditFormProps) {
           />
         </FormField>
 
+        <div className="space-y-3 rounded-xl border border-green-200 bg-green-50/60 p-4">
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              Kontak WhatsApp
+            </h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Tambahkan WhatsApp agar mahasiswa lain dapat menghubungimu
+              untuk membahas kolaborasi lomba.
+            </p>
+          </div>
+
+          <FormField
+            label="Nomor WhatsApp"
+            htmlFor="whatsapp-number"
+            hint="Contoh: 081234567890 atau +6281234567890."
+          >
+            <Input
+              id="whatsapp-number"
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              value={whatsappNumber}
+              onChange={(event) => {
+                setWhatsappNumber(event.target.value);
+
+                if (!event.target.value.trim()) {
+                  setWhatsappPublic(false);
+                }
+              }}
+              placeholder="Masukkan nomor WhatsApp"
+            />
+          </FormField>
+
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={whatsappPublic}
+              disabled={!whatsappNumber.trim() || loading}
+              onChange={(event) =>
+                setWhatsappPublic(event.target.checked)
+              }
+              className="mt-1 size-4 accent-green-600"
+            />
+
+            <span>
+              <span className="block text-sm font-medium text-gray-900">
+                Izinkan dihubungi melalui WhatsApp
+              </span>
+              <span className="mt-1 block text-xs leading-5 text-gray-600">
+                Jika diaktifkan, nomor dan tombol WhatsApp dapat dilihat
+                pengunjung profil publikmu. Kamu bisa menonaktifkannya
+                kapan saja.
+              </span>
+            </span>
+          </label>
+
+          {!whatsappPublic && (
+            <p className="text-xs text-gray-500">
+              Kontak WhatsApp sedang disembunyikan dari pengunjung.
+            </p>
+          )}
+        </div>
+
         {error && (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+          <div
+            role="alert"
+            className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600"
+          >
             {error}
           </div>
         )}
 
         {message && (
-          <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+          <div
+            role="status"
+            className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700"
+          >
             {message}
           </div>
         )}
