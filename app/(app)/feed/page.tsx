@@ -17,14 +17,20 @@ interface FeedPageProps {
   searchParams: Promise<{
     category?: string;
     search?: string;
+    sort?: string;
   }>;
 }
 
 export default async function FeedPage({ searchParams }: FeedPageProps) {
-  const { category, search } = await searchParams;
+  const { category, search, sort } = await searchParams;
 
   const whereClauses: string[] = [];
   const params: (string | number)[] = [];
+
+  const orderSql =
+    sort === "terlama"
+      ? "p.created_at ASC, p.id ASC"
+      : "p.created_at DESC, p.id DESC";
 
   if (category && category !== "Semua") {
     whereClauses.push("p.category = ?");
@@ -32,13 +38,26 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
   }
 
   if (search && search.trim()) {
-    whereClauses.push(
-      "(p.title LIKE ? OR p.description LIKE ? OR p.event_name LIKE ?)",
-    );
-    const searchPattern = `%${search.trim()}%`;
-    params.push(searchPattern, searchPattern, searchPattern);
-  }
+    const keywords = search.trim().split(/\s+/).filter(Boolean);
 
+    for (const keyword of keywords) {
+      whereClauses.push(`(
+        p.title LIKE ? OR
+        p.description LIKE ? OR
+        p.event_name LIKE ? OR
+        pr.full_name LIKE ? OR
+        pr.nim LIKE ? OR
+        pr.study_program LIKE ? OR
+        pr.faculty LIKE ? OR
+        pr.generation LIKE ?
+      )`);
+      const pattern = `%${keyword}%`;
+      params.push(
+        pattern, pattern, pattern, pattern,
+        pattern, pattern, pattern, pattern,
+      );
+    }
+  }
   const whereSql =
     whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
@@ -74,7 +93,7 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
       FROM posts p
       LEFT JOIN profiles pr ON p.user_id = pr.user_id
       ${whereSql}
-      ORDER BY p.created_at DESC
+      ORDER BY ${orderSql}
       LIMIT 50`,
       params,
     );

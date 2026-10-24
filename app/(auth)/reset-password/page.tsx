@@ -7,11 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -21,31 +19,47 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleReset(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+async function handleReset(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-    setError("");
-    setSuccess("");
+  setError("");
+  setSuccess("");
 
-    if (password.length < 8) {
-      setError("Kata sandi minimal 8 karakter.");
-      return;
-    }
+  if (password.length < 8) {
+    setError("Kata sandi minimal 8 karakter.");
+    return;
+  }
 
-    if (password !== confirmPassword) {
-      setError("Konfirmasi kata sandi tidak cocok.");
-      return;
-    }
+  if (password !== confirmPassword) {
+    setError("Konfirmasi kata sandi tidak cocok.");
+    return;
+  }
 
-    setLoading(true);
+  const token = new URLSearchParams(window.location.search).get("token");
 
-    const { error } = await supabase.auth.updateUser({
-      password,
+  if (!token) {
+    setError("Token reset tidak ditemukan. Silakan minta tautan reset baru.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const response = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token,
+        password,
+      }),
     });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.error || data.message || "Gagal mengubah kata sandi.");
       return;
     }
 
@@ -55,7 +69,12 @@ export default function ResetPasswordPage() {
       router.push("/login");
       router.refresh();
     }, 1500);
+  } catch {
+    setError("Terjadi kesalahan koneksi. Silakan coba lagi.");
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <Card>
