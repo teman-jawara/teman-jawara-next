@@ -7,48 +7,40 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ForgotPasswordPage() {
+  const supabase = createClient();
+
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleReset(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  
+async function handleReset(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-    setLoading(true);
-    setMessage("");
-    setError("");
+  setLoading(true);
+  setMessage("");
+  setError("");
 
-    try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: email.trim() }),
-      });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
 
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        setError(
-          data?.message || "Gagal memproses permintaan reset kata sandi.",
-        );
-        return;
-      }
-
-      setMessage(
-        data?.message ||
-          "Jika email terdaftar, instruksi reset kata sandi akan dikirim. Periksa inbox email kamu.",
-      );
-    } catch {
-      setError("Terjadi kesalahan jaringan. Silakan coba lagi.");
-    } finally {
+    if (error) {
+      setError(error.message);
       setLoading(false);
+      return;
     }
+
+    setMessage(
+      "Link reset password sudah dikirim. Cek inbox email kamu.",
+    );
+    setLoading(false);
   }
+
 
   return (
     <Card>
@@ -102,3 +94,4 @@ export default function ForgotPasswordPage() {
     </Card>
   );
 }
+

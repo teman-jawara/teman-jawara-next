@@ -7,10 +7,18 @@ import { db } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProfileEditForm } from "@/components/profile/profile-edit-form";
+import { AchievementsSection } from "@/components/profile/achievements-section";
+import { ProjectsSection } from "@/components/profile/projects-section";
+import { ExperiencesSection } from "@/components/profile/experiences-section";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { PostCard } from "@/components/posts/post-card";
 import { mapRowToPost, type PostRow } from "@/lib/posts";
-import type { Post } from "@/types";
+import {
+  getUserAchievements,
+  getUserProjects,
+  getUserExperiences,
+} from "@/lib/profile-details";
+import type { Achievement, Project, Experience, Post } from "@/types";
 
 export const metadata: Metadata = {
   title: "Profil saya",
@@ -28,6 +36,8 @@ interface ProfileRow extends RowDataPacket {
   bio: string | null;
   skills: unknown;
   competition_interests: unknown;
+  whatsapp_number: string | null;
+  whatsapp_public: number | boolean;
 }
 
 export default async function MyProfilePage() {
@@ -90,49 +100,62 @@ export default async function MyProfilePage() {
     bio: rawProfile.bio,
     skills,
     competition_interests: competitionInterests,
+    whatsapp_number: rawProfile.whatsapp_number,
+    whatsapp_public: Boolean(rawProfile.whatsapp_public),
   };
 
   let posts: Post[] = [];
+  let achievements: Achievement[] = [];
+  let projects: Project[] = [];
+  let experiences: Experience[] = [];
 
   try {
-    const [postRows] = await db.query<PostRow[]>(
-      `SELECT
-        p.id,
-        p.user_id,
-        p.title,
-        p.description,
-        p.category,
-        p.required_skills,
-        p.event_name,
-        p.deadline,
-        p.teammate_count,
-        p.faculty_preference,
-        p.study_program_preference,
-        p.image_url,
-        p.status,
-        p.created_at,
-        p.updated_at,
-        p.view_count,
-        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-        pr.full_name AS author_name,
-        pr.avatar_url AS author_avatar,
-        pr.faculty AS author_faculty,
-        pr.study_program AS author_study_program,
-        pr.nim AS author_nim,
-        pr.generation AS author_generation,
-        pr.bio AS author_bio
-      FROM posts p
-      LEFT JOIN profiles pr ON pr.user_id = p.user_id
-      WHERE p.user_id = ?
-      ORDER BY p.created_at DESC
-      LIMIT 50`,
-      [user.id],
-    );
+    const [postRows, achData, projData, expData] = await Promise.all([
+      db.query<PostRow[]>(
+        `SELECT
+          p.id,
+          p.user_id,
+          p.title,
+          p.description,
+          p.category,
+          p.required_skills,
+          p.event_name,
+          p.deadline,
+          p.teammate_count,
+          p.faculty_preference,
+          p.study_program_preference,
+          p.image_url,
+          p.status,
+          p.created_at,
+          p.updated_at,
+          p.view_count,
+          (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
+          (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+          pr.full_name AS author_name,
+          pr.avatar_url AS author_avatar,
+          pr.faculty AS author_faculty,
+          pr.study_program AS author_study_program,
+          pr.nim AS author_nim,
+          pr.generation AS author_generation,
+          pr.bio AS author_bio
+        FROM posts p
+        LEFT JOIN profiles pr ON pr.user_id = p.user_id
+        WHERE p.user_id = ?
+        ORDER BY p.created_at DESC
+        LIMIT 50`,
+        [user.id],
+      ),
+      getUserAchievements(user.id),
+      getUserProjects(user.id),
+      getUserExperiences(user.id),
+    ]);
 
-    posts = postRows.map(mapRowToPost);
+    posts = postRows[0].map(mapRowToPost);
+    achievements = achData;
+    projects = projData;
+    experiences = expData;
   } catch (error) {
-    console.error("Error loading my posts:", error);
+    console.error("Error loading profile details and posts:", error);
   }
 
   return (
@@ -193,6 +216,25 @@ export default async function MyProfilePage() {
       </Card>
 
       <ProfileEditForm profile={profile} />
+
+      {/* Structured Profile Sections */}
+      <AchievementsSection
+        initialAchievements={achievements}
+        userId={user.id}
+        isEditable={true}
+      />
+
+      <ProjectsSection
+        initialProjects={projects}
+        userId={user.id}
+        isEditable={true}
+      />
+
+      <ExperiencesSection
+        initialExperiences={experiences}
+        userId={user.id}
+        isEditable={true}
+      />
 
       <section className="space-y-3">
         <h2 className="text-lg font-bold text-navy-800">

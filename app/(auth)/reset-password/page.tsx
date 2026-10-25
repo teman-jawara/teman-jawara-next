@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -10,7 +11,6 @@ import { Input } from "@/components/ui/input";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,62 +19,57 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-async function handleReset(event: React.FormEvent<HTMLFormElement>) {
-  event.preventDefault();
+  async function handleReset(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
 
-  setError("");
-  setSuccess("");
-
-  if (password.length < 8) {
-    setError("Kata sandi minimal 8 karakter.");
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    setError("Konfirmasi kata sandi tidak cocok.");
-    return;
-  }
-
-  const token = new URLSearchParams(window.location.search).get("token");
-
-  if (!token) {
-    setError("Token reset tidak ditemukan. Silakan minta tautan reset baru.");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        token,
-        password,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      setError(data.error || data.message || "Gagal mengubah kata sandi.");
+    if (password.length < 8) {
+      setError("Kata sandi minimal 8 karakter.");
       return;
     }
 
-    setSuccess("Kata sandi berhasil diubah.");
+    if (new TextEncoder().encode(password).length > 72) {
+      setError("Kata sandi terlalu panjang. Maksimal 72 byte.");
+      return;
+    }
 
-    setTimeout(() => {
-      router.push("/login");
-      router.refresh();
-    }, 1500);
-  } catch {
-    setError("Terjadi kesalahan koneksi. Silakan coba lagi.");
-  } finally {
-    setLoading(false);
+    if (password !== confirmPassword) {
+      setError("Konfirmasi kata sandi tidak cocok.");
+      return;
+    }
+
+    const token = new URLSearchParams(window.location.search).get("token");
+    if (!token) {
+      setError("Token reset tidak ditemukan. Minta tautan reset baru.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || data.message || "Gagal mengubah kata sandi.");
+        return;
+      }
+
+      setSuccess("Kata sandi berhasil diubah. Mengalihkan ke halaman login...");
+      setTimeout(() => {
+        router.push("/login");
+        router.refresh();
+      }, 1500);
+    } catch {
+      setError("Terjadi kesalahan jaringan. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
   }
-}
 
   return (
     <Card>
@@ -103,7 +98,6 @@ async function handleReset(event: React.FormEvent<HTMLFormElement>) {
               minLength={8}
               className="pr-10"
             />
-
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
@@ -119,10 +113,7 @@ async function handleReset(event: React.FormEvent<HTMLFormElement>) {
           </div>
         </FormField>
 
-        <FormField
-          label="Konfirmasi kata sandi"
-          htmlFor="confirm-password"
-        >
+        <FormField label="Konfirmasi kata sandi" htmlFor="confirm-password">
           <div className="relative">
             <Input
               id="confirm-password"
@@ -134,7 +125,6 @@ async function handleReset(event: React.FormEvent<HTMLFormElement>) {
               minLength={8}
               className="pr-10"
             />
-
             <button
               type="button"
               onClick={() => setShowConfirmPassword((prev) => !prev)}
