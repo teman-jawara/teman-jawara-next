@@ -38,6 +38,11 @@ const CANDIDATE_LIMIT = 300;
 /** Jumlah postingan yang ditampilkan di Feed. */
 const FEED_PAGE_SIZE = 50;
 interface FeedPostRow extends PostRow {
+  author_name: string | null;
+  author_nim: string | null;
+  author_faculty: string | null;
+  author_study_program: string | null;
+  author_generation: number | null;
   author_skills: unknown;
   author_competition_interests: unknown;
 }
@@ -97,7 +102,7 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
     params.push(category);
   }
 
-    if (search && search.trim()) {
+  if (search && search.trim()) {
     const keywords = search.trim().split(/\s+/).filter(Boolean);
 
     for (const keyword of keywords) {
@@ -154,10 +159,10 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
         pr.generation AS author_generation,
         pr.bio AS author_bio,
         pr.skills AS author_skills,
-pr.competition_interests AS author_competition_interests
+        pr.competition_interests AS author_competition_interests
       FROM posts p
       LEFT JOIN profiles pr ON p.user_id = pr.user_id
-           ${whereSql}
+      ${whereSql}
       ORDER BY ${orderSql}
       LIMIT ${CANDIDATE_LIMIT}`,
       params,
@@ -166,22 +171,77 @@ pr.competition_interests AS author_competition_interests
 
     const allCandidates = rows.map(mapRowToPost);
 
-    let orderedPosts = applySearchAndSort(
-      allCandidates,
-      search,
-      sort,
+    const query = search?.trim() ?? "";
+    const identityKeywords = query
+      .toLocaleLowerCase("id-ID")
+      .split(/\s+/)
+      .filter(Boolean);
+
+    // Cari postingan yang pemiliknya cocok dengan nama, NIM,
+    // fakultas, program studi, atau angkatan.
+    const identityMatchedIds = new Set(
+      rows
+        .filter((row) => {
+          if (identityKeywords.length === 0) return false;
+
+          const identityFields = [
+            row.author_name,
+            row.author_nim,
+            row.author_faculty,
+            row.author_study_program,
+            row.author_generation,
+          ];
+
+          const normalizedFields = identityFields.map((value) =>
+            String(value ?? "").toLocaleLowerCase("id-ID"),
+          );
+
+          return identityKeywords.every((keyword) =>
+            normalizedFields.some((value) => value.includes(keyword)),
+          );
+        })
+        .map((row) => row.id),
     );
 
-    const query = search?.trim() ?? "";
+    // TF-IDF tetap digunakan untuk mencari dan mengurutkan postingan
+    // berdasarkan relevansi teks.
+    const relevancePosts = applySearchAndSort(allCandidates, search, sort);
+
+    // Gabungkan hasil identitas dan hasil TF-IDF tanpa duplikasi.
+    const combinedPosts = new Map<string, Post>();
+
+    for (const post of allCandidates) {
+      if (identityMatchedIds.has(post.id)) {
+        combinedPosts.set(post.id, post);
+      }
+    }
+
+    for (const post of relevancePosts) {
+      if (!combinedPosts.has(post.id)) {
+        combinedPosts.set(post.id, post);
+      }
+    }
+
+    let orderedPosts =
+      identityMatchedIds.size > 0 && query
+        ? [...combinedPosts.values()]
+        : relevancePosts;
+
     const selectedCategory =
       category &&
-        category !== "Semua" &&
-        category !== "All"
+      category !== "Semua" &&
+      category !== "All"
         ? category
         : undefined;
 
+    // Jika query cocok dengan identitas pengguna, tampilkan hasil pencarian
+    // tanpa label persentase kecocokan AI. Skor tetap dihitung untuk topik
+    // lomba (mis. "UI UX") atau kategori yang relevan.
+    const isIdentitySearch = Boolean(query) && identityMatchedIds.size > 0;
+
     const shouldCalculateCompetency =
       category !== "Other" &&
+      !isIdentitySearch &&
       (Boolean(query) || Boolean(selectedCategory));
 
     if (shouldCalculateCompetency && orderedPosts.length > 0) {
