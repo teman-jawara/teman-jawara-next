@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { Input } from "@/components/ui/input";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,7 +19,7 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleReset(event: React.FormEvent<HTMLFormElement>) {
+  async function handleReset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSuccess("");
@@ -40,26 +40,34 @@ export default function ResetPasswordPage() {
     }
 
     const token = new URLSearchParams(window.location.search).get("token");
+
     if (!token) {
       setError("Token reset tidak ditemukan. Minta tautan reset baru.");
       return;
     }
 
     setLoading(true);
+
     try {
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
       });
-      const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        setError(data.error || data.message || "Gagal mengubah kata sandi.");
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.success) {
+        setError(
+          data?.error || data?.message || "Gagal mengubah kata sandi.",
+        );
         return;
       }
 
-      setSuccess("Kata sandi berhasil diubah. Mengalihkan ke halaman login...");
+      setSuccess(
+        "Kata sandi berhasil diubah. Mengalihkan ke halaman login...",
+      );
+
       setTimeout(() => {
         router.push("/login");
         router.refresh();
@@ -113,7 +121,10 @@ export default function ResetPasswordPage() {
           </div>
         </FormField>
 
-        <FormField label="Konfirmasi kata sandi" htmlFor="confirm-password">
+        <FormField
+          label="Konfirmasi kata sandi"
+          htmlFor="confirm-password"
+        >
           <div className="relative">
             <Input
               id="confirm-password"

@@ -97,29 +97,29 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
     params.push(category);
   }
 
-  if (search && search.trim()) {
-  const keywords = search.trim().split(/\s+/).filter(Boolean);
+    if (search && search.trim()) {
+    const keywords = search.trim().split(/\s+/).filter(Boolean);
 
-  for (const keyword of keywords) {
-    whereClauses.push(`(
-      p.title LIKE ? OR
-      p.description LIKE ? OR
-      p.event_name LIKE ? OR
-      pr.full_name LIKE ? OR
-      pr.nim LIKE ? OR
-      pr.study_program LIKE ? OR
-      pr.faculty LIKE ? OR
-      pr.generation LIKE ?
-    )`);
+    for (const keyword of keywords) {
+      whereClauses.push(`(
+        p.title LIKE ? OR
+        p.description LIKE ? OR
+        p.event_name LIKE ? OR
+        pr.full_name LIKE ? OR
+        pr.nim LIKE ? OR
+        pr.study_program LIKE ? OR
+        pr.faculty LIKE ? OR
+        pr.generation LIKE ?
+      )`);
 
-    const pattern = `%${keyword}%`;
+      const pattern = `%${keyword}%`;
 
-    params.push(
-      pattern, pattern, pattern, pattern,
-      pattern, pattern, pattern, pattern,
-    );
+      params.push(
+        pattern, pattern, pattern, pattern,
+        pattern, pattern, pattern, pattern,
+      );
+    }
   }
-}
 
   const whereSql =
     whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
@@ -157,10 +157,10 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
 pr.competition_interests AS author_competition_interests
       FROM posts p
       LEFT JOIN profiles pr ON p.user_id = pr.user_id
-      ${whereSql}
-     ORDER BY ${orderSql}
-LIMIT ${CANDIDATE_LIMIT}`,
-params,
+           ${whereSql}
+      ORDER BY ${orderSql}
+      LIMIT ${CANDIDATE_LIMIT}`,
+      params,
     );
 
 
