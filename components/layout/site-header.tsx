@@ -13,9 +13,8 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-[#e7eaf0] bg-white/95 backdrop-blur-md">
       <Container className="flex h-[76px] items-center justify-between">
-        <Link href="#beranda" aria-label="TemanJawara">
-          <Logo />
-        </Link>
+
+        <Logo href="#beranda" />
 
         <nav className="hidden items-center gap-8 md:flex">
           {sectionLinks.map((link) => (

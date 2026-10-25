@@ -1,6 +1,6 @@
+
+import { put } from "@vercel/blob";
 import { NextResponse, type NextRequest } from "next/server";
-import path from "path";
-import fs from "fs/promises";
 import crypto from "crypto";
 import { getAuthenticatedUser } from "@/lib/auth";
 
@@ -12,21 +12,22 @@ const ALLOWED_MIME_TYPES = [
   "image/webp",
   "image/gif",
 ];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Verify user authentication
     const user = await getAuthenticatedUser(request);
+
     if (!user) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized: Silakan masuk terlebih dahulu." },
+        { success: false, message: "Silakan masuk terlebih dahulu." },
         { status: 401 },
       );
     }
 
-    // 2. Parse form data
     const formData = await request.formData().catch(() => null);
+
     if (!formData) {
       return NextResponse.json(
         { success: false, message: "Form data tidak valid." },
@@ -34,66 +35,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const file = formData.get("file") as File | null;
-    if (!file) {
+    const file = formData.get("file");
+
+    if (!(file instanceof File) || file.size === 0) {
       return NextResponse.json(
         { success: false, message: "File gambar tidak ditemukan." },
         { status: 400 },
       );
     }
 
-    // 3. Validate MIME type
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       return NextResponse.json(
-        {
-          success: false,
-          message:
-            "Format file tidak didukung. Harap unggah gambar JPG, PNG, WebP, atau GIF.",
-        },
+        { success: false, message: "Format gambar tidak didukung." },
         { status: 400 },
       );
     }
 
-    // 4. Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "Ukuran gambar terlalu besar. Maksimal 5 MB.",
-        },
+        { success: false, message: "Ukuran gambar maksimal 4 MB." },
         { status: 400 },
       );
     }
 
-    // 5. Determine extension safely
-    let ext = ".jpg";
-    if (file.type === "image/png") ext = ".png";
-    else if (file.type === "image/webp") ext = ".webp";
-    else if (file.type === "image/gif") ext = ".gif";
+    const extensions: Record<string, string> = {
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "image/gif": ".gif",
+    };
 
-    const filename = `${crypto.randomUUID()}${ext}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    const filename = `uploads/${crypto.randomUUID()}${extensions[file.type]}`;
 
-    // 6. Ensure uploads folder exists
-    await fs.mkdir(uploadDir, { recursive: true });
+    const blob = await put(filename, file, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: file.type,
+    });
 
-    // 7. Write file to disk
-    const arrayBuffer = await file.arrayBuffer();
-    const filePath = path.join(uploadDir, filename);
-    await fs.writeFile(filePath, Buffer.from(arrayBuffer));
-
-    const publicUrl = `/uploads/${filename}`;
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Gambar berhasil diunggah.",
-        url: publicUrl,
-      },
-      { status: 200 },
-    );
+    return NextResponse.json({
+      success: true,
+      message: "Gambar berhasil diunggah.",
+      url: blob.url,
+    });
   } catch (error: unknown) {
     console.error("[Upload Error]:", error);
+
     return NextResponse.json(
       {
         success: false,

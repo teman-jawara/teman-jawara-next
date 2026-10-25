@@ -14,12 +14,13 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleReset(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  
+async function handleReset(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
 
-    setLoading(true);
-    setMessage("");
-    setError("");
+  setLoading(true);
+  setMessage("");
+  setError("");
 
     try {
       const response = await fetch("/api/auth/forgot-password", {
@@ -49,6 +50,8 @@ export default function ForgotPasswordPage() {
       setLoading(false);
     }
   }
+}
+
 
   return (
     <Card>

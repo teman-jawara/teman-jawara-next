@@ -53,6 +53,18 @@ export type Post = {
    like_count?: number;
   comment_count?: number;
   view_count?: number;
+  partner_match?: {
+    score: number | null;
+    display_label: string;
+    has_sufficient_data: boolean;
+    breakdown?: {
+      post_relevance: number;
+      profile_match: number;
+      achievement_score: number;
+      project_score: number;
+      experience_score: number;
+    };
+  } | null;
   author?: {
     id: string;
     full_name: string | null;
@@ -111,3 +123,47 @@ export type Notification = {
   read: boolean;
   created_at: string;
 };
+
+export interface Achievement {
+  id: string;
+  user_id: string;
+  competition_name: string;
+  achievement_title: string;
+  category: string;
+  year: number;
+  description: string | null;
+  proof_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Project {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  description: string;
+  technologies: string[];
+  project_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProjectItem = Project;
+
+export interface Experience {
+  id: string;
+  user_id: string;
+  role: string;
+  organization_or_project: string;
+  category: string;
+  description: string;
+  technologies: string[];
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ExperienceItem = Experience;
+

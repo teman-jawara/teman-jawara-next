@@ -55,6 +55,11 @@ export function PostCard({ post,currentUserId, showActions = true, viewMode = "f
           { cache: "no-store" },
         );
 
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Server tidak mengembalikan JSON.");
+        }
+
         const result = await response.json();
 
         if (!response.ok || !result.success) {
@@ -329,10 +334,28 @@ export function PostCard({ post,currentUserId, showActions = true, viewMode = "f
 
           <Link href={`/posts/${post.id}`} className="block">
             {post.category && (
-              <div className="mt-2 mb-2">
+              <div className="mt-2 mb-2 flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                   {post.category}
                 </span>
+
+                {post.category !== "Other" && post.partner_match && (
+                  post.partner_match.has_sufficient_data && post.partner_match.score !== null ? (
+                    <span
+                      title="Skor kecocokan kompetensi dan relevansi partner"
+                      className="inline-flex items-center gap-1 rounded-full border border-gold-400 bg-gold-50 px-2.5 py-0.5 text-xs font-semibold text-navy-900"
+                    >
+                      ⚡ {post.partner_match.display_label}
+                    </span>
+                  ) : (
+                    <span
+                      title="Data profil atau kompetensi belum mencukupi untuk penilaian kecocokan"
+                      className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600"
+                    >
+                      {post.partner_match.display_label || "Data belum cukup"}
+                    </span>
+                  )
+                )}
               </div>
             )}
 

@@ -63,7 +63,7 @@ async function handleReset(event: React.FormEvent<HTMLFormElement>) {
       return;
     }
 
-    setSuccess("Kata sandi berhasil diubah.");
+    setSuccess("Kata sandi berhasil diubah. Mengalihkan ke halaman login...");
 
     setTimeout(() => {
       router.push("/login");
