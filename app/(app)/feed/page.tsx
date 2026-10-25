@@ -87,9 +87,38 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
   const whereClauses: string[] = [];
   const params: (string | number)[] = [];
 
+  const orderSql =
+    sort === "terlama"
+      ? "p.created_at ASC, p.id ASC"
+      : "p.created_at DESC, p.id DESC";
+
   if (category && category !== "Semua") {
     whereClauses.push("p.category = ?");
     params.push(category);
+  }
+
+    if (search && search.trim()) {
+    const keywords = search.trim().split(/\s+/).filter(Boolean);
+
+    for (const keyword of keywords) {
+      whereClauses.push(`(
+        p.title LIKE ? OR
+        p.description LIKE ? OR
+        p.event_name LIKE ? OR
+        pr.full_name LIKE ? OR
+        pr.nim LIKE ? OR
+        pr.study_program LIKE ? OR
+        pr.faculty LIKE ? OR
+        pr.generation LIKE ?
+      )`);
+
+      const pattern = `%${keyword}%`;
+
+      params.push(
+        pattern, pattern, pattern, pattern,
+        pattern, pattern, pattern, pattern,
+      );
+    }
   }
 
   const whereSql =
@@ -128,8 +157,8 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
 pr.competition_interests AS author_competition_interests
       FROM posts p
       LEFT JOIN profiles pr ON p.user_id = pr.user_id
-      ${whereSql}
-      ORDER BY p.created_at DESC, p.id DESC
+           ${whereSql}
+      ORDER BY ${orderSql}
       LIMIT ${CANDIDATE_LIMIT}`,
       params,
     );

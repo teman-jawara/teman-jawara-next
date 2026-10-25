@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
@@ -102,7 +101,7 @@ export function FeedSearch({ children }: FeedSearchProps) {
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Cari judul, deskripsi, atau nama acara"
+              placeholder="Cari nama, NIM, jurusan, fakultas, atau angkatan"
               aria-label="Cari postingan"
               className={`${inputClass} pl-10`}
             />
